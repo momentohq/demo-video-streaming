@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Origin | Momento</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mint: '#00c88c',
+            darkMint: '#03a876',
+            lightMint: '#abe7d2',
+            forest: '#25392b',
+            darkGray: '#1e1f21',
+            squirrel: '#c2b2a9',
+            gray: '#32353B'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Manrope', sans-serif;
+    }
+  </style>
+</head>
+
+<body class="bg-darkGray text-white">
+  <!-- Header -->
+  <header class="bg-forest text-white py-4 px-6 w-full fixed top-0">
+    <div class="max-w-full mx-auto flex items-center">
+      <img id="logo" src="assets/momento-logo-white.png" alt="Momento Logo" class="w-44">
+    </div>
+  </header>
+
+  <!-- Embed Container -->
+  <div class="bg-gray rounded-lg shadow-lg max-w-lg p-6 mt-24 mx-auto relative">
+    <img src="assets/momento-mark-white.png" alt="Momento Mark" class="absolute top-4 right-4 w-12 h-12">
+    <h2 class="text-2xl">Big Buck Bunny</h2>
+    <!-- Segment Counter Above Video -->
+    <div class="flex gap-4 mt-4 items-center justify-center">
+      <div class="text-center mb-4">
+        <p class="text-mint text-lg font-semibold">Segments Downloaded</p>
+        <p id="segmentsDownloaded" class="text-2xl">0</p>
+      </div>
+
+      <div class="text-center mb-4">
+        <p class="text-mint text-lg font-semibold">Buffer Size</p>
+        <p id="bufferSize" class="text-2xl">0</p>
+      </div>
+    </div>
+
+    <!-- Video Player -->
+    <div class="bg-gray-700 rounded-lg shadow-md p-4 mb-6">
+      <video id="videoPlayer" controls class="w-full rounded-lg"></video>
+    </div>
+
+    <!-- Footer (Buttons Area) -->
+    <div class="flex justify-center space-x-4 mt-4">
+      <button id="togglePlayPause" onclick="togglePlayPause()"
+        class="px-6 py-2 text-lg font-semibold text-white bg-darkMint rounded-lg hover:bg-forest transition">
+        Play
+      </button>
+      <button id="toggleSegmentPublishing" onclick="toggleSegmentPublishing()"
+        class="px-6 py-2 text-lg font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition">
+        Disable Segment Publishing
+      </button>
+    </div>
+  </div>
+
+  <script src="play.js"></script>
+</body>
+
+</html>
