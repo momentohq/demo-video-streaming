@@ -1,6 +1,6 @@
 const videoPlayer = document.getElementById('videoPlayer');
 const togglePlayPauseBtn = document.getElementById('togglePlayPause');
-const toggleSegmentPublishingBtn = document.getElementById('toggleSegmentPublishing');
+const toggleEventsBtn = document.getElementById('toggleEvents');
 const bufferSizeElement = document.getElementById('bufferSize');
 const segmentsDownloadedElement = document.getElementById('segmentsDownloaded');
 
@@ -37,11 +37,11 @@ function togglePlayPause() {
 /**
  * Toggles the segment publishing state and updates the button text.
  */
-function toggleSegmentPublishing() {
+function toggleEvents() {
   isPublishingSegments = !isPublishingSegments;
-  toggleSegmentPublishingBtn.textContent = isPublishingSegments
-    ? 'Disable Segment Publishing'
-    : 'Enable Segment Publishing';
+  toggleEventsBtn.textContent = isPublishingSegments
+    ? 'Hide events'
+    : 'Show events';
 }
 
 /**
@@ -65,8 +65,7 @@ async function postPlayerAction(action) {
     });
 
     if (response.ok) {
-      const responseData = await response.json();
-      console.log('Action posted successfully:', responseData);
+      console.log('Action posted successfully');
     } else {
       console.error(`Failed to post action: ${response.statusText}`);
     }
