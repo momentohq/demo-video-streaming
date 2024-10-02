@@ -20,7 +20,7 @@
             forest: '#25392b',
             darkGray: '#1e1f21',
             squirrel: '#c2b2a9',
-            gray: '#32353B'
+            mediumGray: '#32353B'
           }
         }
       }
@@ -40,43 +40,60 @@
     </div>
   </header>
 
-  <!-- Embed Container -->
-  <div class="bg-gray rounded-lg shadow-lg max-w-lg p-6 mt-24 mx-auto relative">
-    <img src="assets/momento-mark-white.png" alt="Momento Mark" class="absolute top-4 right-4 w-12 h-12">
-    <h2 class="text-2xl">Big Buck Bunny</h2>
-    <!-- Segment Counter Above Video -->
-    <div class="flex gap-4 mt-4 items-center justify-center">
-      <div class="text-center mb-4">
-        <p class="text-mint text-lg font-semibold">Segments Downloaded</p>
-        <p id="segmentsDownloaded" class="text-2xl">0</p>
+  <!-- Main Container -->
+  <div class="container mx-auto mt-24 px-4 lg:px-0">
+
+    <div class="lg:flex lg:space-x-6 justify-center">
+      <!-- Embed Container -->
+      <div class="bg-mediumGray rounded-lg shadow-lg py-4 px-4 lg:p-6 relative lg:w-2/3 lg:mb-0 mb-4">
+        <img src="assets/momento-mark-white.png" alt="Momento Mark" class="absolute top-4 right-4 lg:w-12 w-10">
+        <h2 class="text-3xl lg:text-2xl">Big Buck Bunny</h2>
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-3 mt-6 items-center justify-center">
+          <!-- Segments Downloaded -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Segments</p>
+            <p id="segmentsDownloaded" class="text-lg lg:text-2xl">0</p>
+          </div>
+          <!-- Avg Download Time -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Avg Download</p>
+            <p id="avgDownloadTime" class="text-lg lg:text-2xl">0 ms</p>
+          </div>
+          <!-- Look-ahead Time -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Look-ahead</p>
+            <p id="bufferSize" class="text-lg lg:text-2xl">0s</p>
+          </div>
+        </div>
+
+        <!-- Video Player -->
+        <div class="relative bg-gray-700 rounded-lg shadow-md p-2 lg:p-4 mb-6">
+          <div
+            class="absolute top-3 left-3 lg:top-5 lg:left-5 flex items-center bg-black bg-opacity-50 text-white text-sm px-2 py-0 rounded-full">
+            <span class="material-icons text-white text-lg">visibility</span>
+            <span id="viewerCount" class="ml-1">100</span>
+          </div>
+          <video id="videoPlayer" controls class="w-full rounded-lg"></video>
+        </div>
       </div>
 
-      <div class="text-center mb-4">
-        <p class="text-mint text-lg font-semibold">Look-ahead Time</p>
-        <p id="bufferSize" class="text-2xl">0</p>
+      <!-- Events List Container -->
+      <div id="eventsList"
+        class="bg-mediumGray rounded-lg shadow-lg w-full lg:max-w-lg lg:w-80 py-6 px-4 flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-2xl">Captured Events</h2>
+          <div id="togglePublish" class="relative inline-flex items-center cursor-pointer" onclick="togglePublish()">
+            <div id="toggleBg" class="w-11 h-6 bg-mint rounded-full transition-colors duration-300 ease-in-out"></div>
+            <div id="toggleCircle"
+              class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ease-in-out"
+              style="transform: translateX(20px);"></div>
+          </div>
+        </div>
+        <ul id="eventContainer" class="space-y-2 bg-white rounded-lg text-black p-2 flex-1 overflow-y-auto text-sm">
+        </ul>
       </div>
-    </div>
-
-    <!-- Video Player -->
-    <div class="relative bg-gray-700 rounded-lg shadow-md p-4 mb-6">
-      <div class="absolute top-5 left-5 flex items-center bg-black bg-opacity-50 text-white text-sm px-2 py-0 rounded-full">
-          <span class="material-icons text-white text-lg">visibility</span>
-          <span id="viewerCount" class="ml-1">100</span>
-      </div>
-
-      <video id="videoPlayer" controls class="w-full rounded-lg"></video>
-  </div>
-
-    <!-- Footer (Buttons Area) -->
-    <div class="flex justify-center space-x-4 mt-4">
-      <button id="togglePlayPause" onclick="togglePlayPause()"
-        class="px-6 py-2 text-lg font-semibold text-white bg-darkMint rounded-lg hover:bg-forest transition">
-        Play
-      </button>
-      <button id="toggleEvents" onclick="toggleEvents()"
-        class="px-6 py-2 text-lg font-semibold text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition">
-        Show events
-      </button>
     </div>
   </div>
 

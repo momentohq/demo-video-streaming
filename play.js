@@ -7,9 +7,14 @@ const segmentsDownloadedElement = document.getElementById('segmentsDownloaded');
 const POST_URL = 'https://vid.swaghunt.io/topics/fanatics/topic';
 const HLS_STREAM_URL = 'https://vid.swaghunt.io/playlist_1920x1080_8000k.m3u8';
 
-let isPublishingSegments = true;
-let playerId = generateShortId();
 let segmentsDownloaded = 0;
+let downloadTimes = [];
+let isPublishingSegments = true;
+let playerId = localStorage.getItem('playerId');
+if (!playerId) {
+  playerId = generateShortId();
+  localStorage.setItem('playerId', playerId);
+}
 
 /**
  * Generate a shorter random video player ID (6 characters)
@@ -19,29 +24,19 @@ function generateShortId() {
   return Math.random().toString(36).substr(2, 6);
 }
 
-/**
- * Toggles play/pause state of the video and updates the button text.
- */
-function togglePlayPause() {
-  if (videoPlayer.paused) {
-    videoPlayer.play();
-    togglePlayPauseBtn.textContent = 'Pause';
-    postPlayerAction('play');
-  } else {
-    videoPlayer.pause();
-    togglePlayPauseBtn.textContent = 'Play';
-    postPlayerAction('pause');
-  }
-}
+function togglePublish() {
+  const toggleBg = document.getElementById('toggleBg');
+  const toggleCircle = document.getElementById('toggleCircle');
 
-/**
- * Toggles the segment publishing state and updates the button text.
- */
-function toggleEvents() {
-  isPublishingSegments = !isPublishingSegments;
-  toggleEventsBtn.textContent = isPublishingSegments
-    ? 'Hide events'
-    : 'Show events';
+  if (isPublishingSegments) {
+    isPublishingSegments = false;
+    toggleBg.classList.replace('bg-mint', 'bg-gray-500');
+    toggleCircle.style.transform = 'translateX(0)';
+  } else {
+    isPublishingSegments = true;
+    toggleBg.classList.replace('bg-gray-500', 'bg-mint');
+    toggleCircle.style.transform = 'translateX(20px)';
+  }
 }
 
 /**
@@ -65,7 +60,7 @@ async function postPlayerAction(action) {
     });
 
     if (response.ok) {
-      console.log('Action posted successfully');
+      addEvent(action);
     } else {
       console.error(`Failed to post action: ${response.statusText}`);
     }
@@ -96,6 +91,35 @@ async function postSegmentDownload(segmentUrl) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
+
+  const eventContainer = document.getElementById('eventContainer');
+  const lastEvent = eventContainer.lastChild;
+  if (lastEvent && lastEvent.textContent.includes('Segment downloaded')) {
+    let count = 2;
+    const match = lastEvent.textContent.match(/\((\d+)\)/);
+    if (match) {
+      count = parseInt(match[1]) + 1;
+    }
+    const lastEventDescription = lastEvent.querySelector('.description');
+    lastEventDescription.textContent = `${lastEventDescription.textContent.split('(')[0]} (${count})`;
+  } else {
+    addEvent('Segment downloaded');
+  }
+}
+
+function addEvent(action) {
+  const eventContainer = document.getElementById('eventContainer');
+  const event = document.createElement('li');
+  const time = document.createElement('strong');
+  time.textContent = new Date().toLocaleTimeString();
+
+  const eventText = document.createElement('span');
+  eventText.textContent = ` - ${action}`;
+  eventText.className = "description";
+
+  event.appendChild(time);
+  event.appendChild(eventText);
+  eventContainer.appendChild(event);
 }
 
 /**
@@ -104,6 +128,15 @@ async function postSegmentDownload(segmentUrl) {
 function updateSegmentCount() {
   segmentsDownloaded++;
   segmentsDownloadedElement.textContent = segmentsDownloaded;
+}
+
+/**
+ * Update the average download time for segments
+ */
+function updateAvgDownloadTime() {
+  const avgDownloadTime = downloadTimes.reduce((a, b) => a + b, 0) / downloadTimes.length;
+  const avgDownloadTimeElement = document.getElementById('avgDownloadTime');
+  avgDownloadTimeElement.textContent = avgDownloadTime.toFixed(0) + "ms";
 }
 
 /**
@@ -136,17 +169,32 @@ if (Hls.isSupported()) {
   hls.loadSource(HLS_STREAM_URL);
   hls.attachMedia(videoPlayer);
 
+  const segmentStartTimes = new Map();
+  hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+    const segmentUrl = data.frag.url;
+    segmentStartTimes.set(segmentUrl, performance.now());
+  });
+
   hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
     const segmentUrl = data.frag.url;
     postSegmentDownload(segmentUrl);
     updateSegmentCount();
+
+    if (segmentStartTimes.has(segmentUrl)) {
+      const startTime = segmentStartTimes.get(segmentUrl);
+      const downloadTime = performance.now() - startTime;
+      segmentStartTimes.delete(segmentUrl);
+      downloadTimes.push(downloadTime);
+      updateAvgDownloadTime();
+    }
   });
 
-  hls.on(Hls.Events.BUFFER_APPENDED, () => {
-    updateBufferSizeDisplay();
-  });
+  hls.on(Hls.Events.BUFFER_APPENDED, () => updateBufferSizeDisplay());
+  hls.on(Hls.Events.MANIFEST_LOADED, () => addEvent('Manifest loaded'));
 
   videoPlayer.addEventListener('timeupdate', updateBufferSizeDisplay);
+  videoPlayer.addEventListener('play', () => postPlayerAction('Play'));
+  videoPlayer.addEventListener('pause', () => postPlayerAction('Pause'));
 
 } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
   videoPlayer.src = HLS_STREAM_URL;
