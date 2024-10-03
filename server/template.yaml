@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Server support for video streaming app
+
+Metadata:
+  esbuild-properties: &esbuild-properties
+    Format: esm
+    Minify: true
+    OutExtension:
+      - .js=.mjs
+    Target: es2020
+    Sourcemap: false
+    EntryPoints:
+      - index.mjs
+    Banner:
+      - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+    External:
+      - '@aws-sdk/*'
+
+Parameters:
+  MomentoApiKey:
+    Type: String
+    NoEcho: true
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures:
+      - arm64
+    Tracing: Active
+    Timeout: 15
+    MemorySize: 1024
+    CodeUri: functions
+    Environment:
+      Variables:
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+
+Resources:
+  WebhookFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        <<: *esbuild-properties
+        EntryPoints:
+          - webhook.mjs
+    Properties:
+      Handler: webhook.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          MOMENTO_API_KEY: !Ref MomentoApiKey
+          CACHE_NAME: video
+      FunctionUrlConfig:
+        AuthType: NONE
+
+  TVMFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        <<: *esbuild-properties
+        EntryPoints:
+          - tvm.mjs
+    Properties:
+      Handler: tvm.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          MOMENTO_API_KEY: !Ref MomentoApiKey
+          CACHE_NAME: video
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowMethods:
+            - GET
+          AllowOrigins:
+            - '*'
+          MaxAge: 3600
+
+Outputs:
+  WebhookUrlEndpoint:
+    Description: Webhook url endpoint
+    Value:
+      Fn::GetAtt: WebhookFunctionUrl.FunctionUrl
+  TVMEndpoint:
+    Description: Token Vending Machine endpoint
+    Value:
+      Fn::GetAtt: TVMFunctionUrl.FunctionUrl

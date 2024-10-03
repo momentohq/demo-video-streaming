@@ -4,7 +4,6 @@ const toggleEventsBtn = document.getElementById('toggleEvents');
 const bufferSizeElement = document.getElementById('bufferSize');
 const segmentsDownloadedElement = document.getElementById('segmentsDownloaded');
 
-const POST_URL = 'https://vid.swaghunt.io/topics/fanatics/topic';
 const HLS_STREAM_URL = 'https://vid.swaghunt.io/playlist_1920x1080_8000k.m3u8';
 
 let segmentsDownloaded = 0;
@@ -14,6 +13,18 @@ let playerId = localStorage.getItem('playerId');
 if (!playerId) {
   playerId = generateShortId();
   localStorage.setItem('playerId', playerId);
+}
+
+let token;
+let momentoBaseUrl;
+initializeMomento();
+
+async function initializeMomento() {
+  const response = await fetch('https://f5sntto2bzej3smy2k67irv7ni0pjhqa.lambda-url.us-east-1.on.aws/');
+  const data = await response.json();
+  token = data.token;
+  momentoBaseUrl = data.momentoEndpoint;
+  pollForViewerUpdates();
 }
 
 /**
@@ -41,22 +52,19 @@ function togglePublish() {
 
 /**
  * Posts player actions (play/pause) to the server.
- * @param {string} action - The action to post (e.g., 'play', 'pause').
+ * @param {string} action - The action to post (e.g., 'Play', 'Pause').
  */
 async function postPlayerAction(action) {
-  const data = {
-    playerId,
-    action,
-    timestamp: new Date().toISOString(),
-  };
-
-  console.log(`Posting action: ${action}`, data);
+  if (!momentoBaseUrl || !playerId) return;
 
   try {
-    const response = await fetch(POST_URL, {
+    const response = await fetch(`${momentoBaseUrl}/stream`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token,
+      },
+      body: JSON.stringify({ playerId, action }),
     });
 
     if (response.ok) {
@@ -74,22 +82,21 @@ async function postPlayerAction(action) {
  * @param {string} segmentUrl - The URL of the segment being downloaded.
  */
 async function postSegmentDownload(segmentUrl) {
-  if (!isPublishingSegments) return;
+  if (!isPublishingSegments || !momentoBaseUrl || !token) return;
 
   // Extract only the last part of the segment URL
   const relativeSegmentUrl = segmentUrl.substring(segmentUrl.lastIndexOf('/') + 1);
-  const data = {
-    playerId,
-    segmentUrl: relativeSegmentUrl,
-    timestamp: new Date().toISOString(),
-  };
-
-  console.log(`Posting segment download: ${relativeSegmentUrl}`, data);
-
-  await fetch(POST_URL, {
+  await fetch(`${momentoBaseUrl}/stream`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': token,
+    },
+    body: JSON.stringify({
+      playerId,
+      action: 'Download',
+      segmentUrl: relativeSegmentUrl,
+    }),
   });
 
   const eventContainer = document.getElementById('eventContainer');
@@ -162,6 +169,33 @@ function getLookAheadBufferSize() {
 function updateBufferSizeDisplay() {
   const lookAheadBufferSize = getLookAheadBufferSize();
   bufferSizeElement.textContent = lookAheadBufferSize.toFixed(2) + "s";
+}
+
+async function pollForViewerUpdates() {
+  try {
+    const response = await fetch(`${momentoBaseUrl}/viewerCount`,{
+      headers: {
+        'Authorization': token,
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.items && data.items.length > 0) {
+        const item = data.items[0];
+        if (item.item && item.item.value && item.item.value.text) {
+          const viewerCount = document.getElementById('viewerCount');
+          viewerCount.textContent = item.item.value.text;
+        }
+      }
+    } else {
+      console.warn('Response not OK:', response.status);
+    }
+  } catch (error) {
+    console.error('Long polling error:', error);
+  } finally {
+    setTimeout(() => pollForViewerUpdates(), 0);
+  }
 }
 
 if (Hls.isSupported()) {
