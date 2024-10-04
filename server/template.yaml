@@ -81,6 +81,25 @@ Resources:
             - '*'
           MaxAge: 3600
 
+  AnalyticsFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        <<: *esbuild-properties
+        EntryPoints:
+          - analytics.mjs
+    Properties:
+      Handler: analytics.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          MOMENTO_API_KEY: !Ref MomentoApiKey
+          CACHE_NAME: video
+      FunctionUrlConfig:
+        AuthType: NONE
+
 Outputs:
   WebhookUrlEndpoint:
     Description: Webhook url endpoint
@@ -90,3 +109,7 @@ Outputs:
     Description: Token Vending Machine endpoint
     Value:
       Fn::GetAtt: TVMFunctionUrl.FunctionUrl
+  AnalyticsEndpoint:
+    Description: Analytics endpoint
+    Value:
+      Fn::GetAtt: AnalyticsFunctionUrl.FunctionUrl

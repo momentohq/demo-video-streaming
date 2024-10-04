@@ -14,6 +14,13 @@ if (!playerId) {
   playerId = generateShortId();
   localStorage.setItem('playerId', playerId);
 }
+let totalPlayTime = 0;
+const sessionPlayTime = sessionStorage.getItem('playTime');
+if (sessionPlayTime) {
+  totalPlayTime = parseInt(sessionPlayTime);
+}
+
+let bitrate;
 
 let token;
 let momentoBaseUrl;
@@ -25,6 +32,17 @@ async function initializeMomento() {
   token = data.token;
   momentoBaseUrl = data.momentoEndpoint;
   pollForViewerUpdates();
+  heartbeat();
+}
+
+let userStats;
+if (navigator.userAgentData) {
+  userStats = {
+    browser: navigator.userAgentData.brands[0].brand,
+    os: navigator.userAgentData.platform,
+    device: navigator.userAgentData.mobile ? 'Mobile' : 'Desktop'
+  };
+  console.log(userStats);
 }
 
 /**
@@ -173,7 +191,7 @@ function updateBufferSizeDisplay() {
 
 async function pollForViewerUpdates() {
   try {
-    const response = await fetch(`${momentoBaseUrl}/viewerCount`,{
+    const response = await fetch(`${momentoBaseUrl}/viewerCount`, {
       headers: {
         'Authorization': token,
       }
@@ -198,6 +216,33 @@ async function pollForViewerUpdates() {
   }
 }
 
+async function heartbeat() {
+  try {
+    const response = await fetch(`${momentoBaseUrl}/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token,
+      },
+      body: JSON.stringify({
+        playerId,
+        action: 'heartbeat',
+        bitrate,
+        playTime: totalPlayTime,
+        ...userStats && { agent: userStats }
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn('Heartbeat response not OK:', response.status);
+    }
+  } catch (error) {
+    console.error('Heartbeat error:', error);
+  } finally {
+    setTimeout(() => heartbeat(), 1000);
+  }
+}
+
 if (Hls.isSupported()) {
   const hls = new Hls();
   hls.loadSource(HLS_STREAM_URL);
@@ -211,6 +256,8 @@ if (Hls.isSupported()) {
 
   hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
     const segmentUrl = data.frag.url;
+    const currentLevel = hls.levels[data.frag.level];
+    bitrate = currentLevel.bitrate;
     postSegmentDownload(segmentUrl);
     updateSegmentCount();
 
@@ -227,8 +274,28 @@ if (Hls.isSupported()) {
   hls.on(Hls.Events.MANIFEST_LOADED, () => addEvent('Manifest loaded'));
 
   videoPlayer.addEventListener('timeupdate', updateBufferSizeDisplay);
-  videoPlayer.addEventListener('play', () => postPlayerAction('Play'));
-  videoPlayer.addEventListener('pause', () => postPlayerAction('Pause'));
+
+  let playStartTime = 0;
+  let timerInterval;
+  videoPlayer.addEventListener('play', () => {
+    playStartTime = performance.now();
+    timerInterval = setInterval(() => {
+      const currentTime = performance.now();
+      totalPlayTime += Math.round((currentTime - playStartTime) / 1000);
+      playStartTime = currentTime;
+      sessionStorage.setItem('playTime', totalPlayTime);
+    }, 1000);
+
+    postPlayerAction('Play');
+  });
+
+  videoPlayer.addEventListener('pause', () => {
+    clearInterval(timerInterval);
+    const currentTime = performance.now();
+    totalPlayTime += (currentTime - playStartTime) / 1000;
+
+    postPlayerAction('Pause');
+  });
 
 } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
   videoPlayer.src = HLS_STREAM_URL;
