@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Origin | Momento</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="icon" href="https://momento-developers.s3.amazonaws.com/public/momento-mark-white.png" type="image/png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mint: '#00c88c',
+            darkMint: '#03a876',
+            lightMint: '#abe7d2',
+            forest: '#25392b',
+            darkGray: '#1e1f21',
+            squirrel: '#c2b2a9',
+            mediumGray: '#32353B'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Manrope', sans-serif;
+    }
+  </style>
+</head>
+
+<body class="bg-darkGray text-white">
+  <header class="bg-forest text-white py-4 px-6 w-full fixed top-0">
+    <div class="max-w-full mx-auto flex items-center">
+      <img id="logo" src="https://momento-developers.s3.amazonaws.com/public/momento-logo-white.png" alt="Momento Logo" class="w-44">
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container mx-auto mt-24 px-4 lg:px-0">
+
+    <div class="lg:flex lg:space-x-6 justify-center">
+      <!-- Embed Container -->
+      <div class="bg-mediumGray rounded-lg shadow-lg py-4 px-4 lg:p-6 relative lg:w-2/3 lg:mb-0 mb-4">
+        <img src="https://momento-developers.s3.amazonaws.com/public/momento-mark-white.png" alt="Momento Mark" class="absolute top-4 right-4 lg:w-12 w-10">
+        <h2 class="text-3xl lg:text-2xl">Big Buck Bunny</h2>
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-3 mt-6 items-center justify-center">
+          <!-- Segments Downloaded -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Segments</p>
+            <p id="segmentsDownloaded" class="text-lg lg:text-2xl">0</p>
+          </div>
+          <!-- Avg Download Time -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Avg Download</p>
+            <p id="avgDownloadTime" class="text-lg lg:text-2xl">0 ms</p>
+          </div>
+          <!-- Look-ahead Time -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Look-ahead</p>
+            <p id="bufferSize" class="text-lg lg:text-2xl">0s</p>
+          </div>
+        </div>
+
+        <!-- Video Player -->
+        <div class="relative bg-gray-700 rounded-lg shadow-md p-2 lg:p-4 mb-6">
+          <div
+            class="absolute top-3 left-3 lg:top-5 lg:left-5 flex items-center bg-black bg-opacity-50 text-white text-sm px-2 py-0 rounded-full">
+            <span class="material-icons text-white text-lg">visibility</span>
+            <span id="viewerCount" class="ml-1">100</span>
+          </div>
+          <video id="videoPlayer" controls class="w-full rounded-lg"></video>
+        </div>
+      </div>
+
+      <!-- Events List Container -->
+      <div id="eventsList"
+        class="bg-mediumGray rounded-lg shadow-lg w-full lg:max-w-lg lg:w-80 py-6 px-4 flex flex-col">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-2xl">Captured Events</h2>
+          <div id="togglePublish" class="relative inline-flex items-center cursor-pointer" onclick="togglePublish()">
+            <div id="toggleBg" class="w-11 h-6 bg-mint rounded-full transition-colors duration-300 ease-in-out"></div>
+            <div id="toggleCircle"
+              class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ease-in-out"
+              style="transform: translateX(20px);"></div>
+          </div>
+        </div>
+        <ul id="eventContainer" class="space-y-2 bg-white rounded-lg text-black p-2 flex-1 overflow-y-auto text-sm">
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const videoPlayer = document.getElementById('videoPlayer');
+    const togglePlayPauseBtn = document.getElementById('togglePlayPause');
+    const toggleEventsBtn = document.getElementById('toggleEvents');
+    const bufferSizeElement = document.getElementById('bufferSize');
+    const segmentsDownloadedElement = document.getElementById('segmentsDownloaded');
+
+    const HLS_STREAM_URL = '{{ streamUrl }}';
+
+    let segmentsDownloaded = 0;
+    let downloadTimes = [];
+    let isPublishingSegments = true;
+    let playerId = localStorage.getItem('playerId');
+    if (!playerId) {
+      playerId = generateShortId();
+      localStorage.setItem('playerId', playerId);
+    }
+
+    let totalPlayTime = 0;
+    const sessionPlayTime = sessionStorage.getItem('playTime');
+    if (sessionPlayTime) {
+      totalPlayTime = parseInt(sessionPlayTime);
+    }
+
+    let bitrate;
+    let userStats;
+    if (navigator.userAgentData) {
+      userStats = {
+        browser: navigator.userAgentData.brands[0].brand,
+        os: navigator.userAgentData.platform,
+        device: navigator.userAgentData.mobile ? 'Mobile' : 'Desktop'
+      };
+    }
+
+    pollForViewerUpdates();
+    heartbeat();
+
+    /**
+     * Generate a shorter random video player ID (6 characters)
+     * @returns {string} A random 6-character video player ID
+     */
+    function generateShortId() {
+      return Math.random().toString(36).substr(2, 6);
+    }
+
+    function togglePublish() {
+      const toggleBg = document.getElementById('toggleBg');
+      const toggleCircle = document.getElementById('toggleCircle');
+
+      if (isPublishingSegments) {
+        isPublishingSegments = false;
+        toggleBg.classList.replace('bg-mint', 'bg-gray-500');
+        toggleCircle.style.transform = 'translateX(0)';
+      } else {
+        isPublishingSegments = true;
+        toggleBg.classList.replace('bg-gray-500', 'bg-mint');
+        toggleCircle.style.transform = 'translateX(20px)';
+      }
+    }
+
+    /**
+     * Posts player actions (play/pause) to the server.
+     * @param {string} action - The action to post (e.g., 'Play', 'Pause').
+     */
+    async function postPlayerAction(action) {
+      if (!playerId) return;
+
+      try {
+        const response = await fetch('{{momento.endpoint}}/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': '{{{momento.token}}}',
+          },
+          body: JSON.stringify({ playerId, action }),
+        });
+
+        if (response.ok) {
+          addEvent(action);
+        } else {
+          console.error(`Failed to post action: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error posting action:', error);
+      }
+    }
+
+    /**
+     * Posts segment download data to the server, respecting the publishing toggle.
+     * @param {string} segmentUrl - The URL of the segment being downloaded.
+     */
+    async function postSegmentDownload(segmentUrl) {
+      if (!isPublishingSegments) return;
+
+      // Extract only the last part of the segment URL
+      const relativeSegmentUrl = segmentUrl.substring(segmentUrl.lastIndexOf('/') + 1);
+      await fetch('{{momento.endpoint}}/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': '{{{momento.token}}}',
+        },
+        body: JSON.stringify({
+          playerId,
+          action: 'Download',
+          segmentUrl: relativeSegmentUrl,
+        }),
+      });
+
+      const eventContainer = document.getElementById('eventContainer');
+      const lastEvent = eventContainer.lastChild;
+      if (lastEvent && lastEvent.textContent.includes('Segment downloaded')) {
+        let count = 2;
+        const match = lastEvent.textContent.match(/\((\d+)\)/);
+        if (match) {
+          count = parseInt(match[1]) + 1;
+        }
+        const lastEventDescription = lastEvent.querySelector('.description');
+        lastEventDescription.textContent = `${lastEventDescription.textContent.split('(')[0]} (${count})`;
+      } else {
+        addEvent('Segment downloaded');
+      }
+    }
+
+    function addEvent(action) {
+      const eventContainer = document.getElementById('eventContainer');
+      const event = document.createElement('li');
+      const time = document.createElement('strong');
+      time.textContent = new Date().toLocaleTimeString();
+
+      const eventText = document.createElement('span');
+      eventText.textContent = ` - ${action}`;
+      eventText.className = "description";
+
+      event.appendChild(time);
+      event.appendChild(eventText);
+      eventContainer.appendChild(event);
+    }
+
+    /**
+     * Update the segments downloaded count and display it.
+     */
+    function updateSegmentCount() {
+      segmentsDownloaded++;
+      segmentsDownloadedElement.textContent = segmentsDownloaded;
+    }
+
+    /**
+     * Update the average download time for segments
+     */
+    function updateAvgDownloadTime() {
+      const avgDownloadTime = downloadTimes.reduce((a, b) => a + b, 0) / downloadTimes.length;
+      const avgDownloadTimeElement = document.getElementById('avgDownloadTime');
+      avgDownloadTimeElement.textContent = avgDownloadTime.toFixed(0) + "ms";
+    }
+
+    /**
+     * Calculate the look-ahead buffer size in seconds.
+     * @returns {number} The number of seconds of video that are buffered ahead of the current playback time.
+     */
+    function getLookAheadBufferSize() {
+      const buffered = videoPlayer.buffered;
+      const currentTime = videoPlayer.currentTime;
+
+      for (let i = 0; i < buffered.length; i++) {
+        if (buffered.start(i) <= currentTime && buffered.end(i) > currentTime) {
+          return buffered.end(i) - currentTime;
+        }
+      }
+
+      return 0;
+    }
+
+    /**
+     * Update the look-ahead buffer size display.
+     */
+    function updateBufferSizeDisplay() {
+      const lookAheadBufferSize = getLookAheadBufferSize();
+      bufferSizeElement.textContent = lookAheadBufferSize.toFixed(2) + "s";
+    }
+
+    async function pollForViewerUpdates() {
+      try {
+        const response = await fetch('{{momento.endpoint}}/viewerCount', {
+          headers: {
+            'Authorization': '{{{momento.token}}}',
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.items && data.items.length > 0) {
+            const item = data.items[0];
+            if (item.item && item.item.value && item.item.value.text) {
+              const viewerCount = document.getElementById('viewerCount');
+              viewerCount.textContent = item.item.value.text;
+            }
+          }
+        } else {
+          console.warn('Response not OK:', response.status);
+        }
+      } catch (error) {
+        console.error('Long polling error:', error);
+      } finally {
+        setTimeout(() => pollForViewerUpdates(), 0);
+      }
+    }
+
+    async function heartbeat() {
+      try {
+        const response = await fetch('{{momento.endpoint}}/stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': '{{{momento.token}}}',
+          },
+          body: JSON.stringify({
+            playerId,
+            action: 'heartbeat',
+            bitrate,
+            playTime: totalPlayTime,
+            ...userStats && { agent: userStats }
+          }),
+        });
+
+        if (!response.ok) {
+          console.warn('Heartbeat response not OK:', response.status);
+        }
+      } catch (error) {
+        console.error('Heartbeat error:', error);
+      } finally {
+        setTimeout(() => heartbeat(), 1000);
+      }
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(HLS_STREAM_URL);
+      hls.attachMedia(videoPlayer);
+
+      const segmentStartTimes = new Map();
+      hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+        const segmentUrl = data.frag.url;
+        segmentStartTimes.set(segmentUrl, performance.now());
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+        const segmentUrl = data.frag.url;
+        const currentLevel = hls.levels[data.frag.level];
+        bitrate = currentLevel.bitrate;
+        postSegmentDownload(segmentUrl);
+        updateSegmentCount();
+
+        if (segmentStartTimes.has(segmentUrl)) {
+          const startTime = segmentStartTimes.get(segmentUrl);
+          const downloadTime = performance.now() - startTime;
+          segmentStartTimes.delete(segmentUrl);
+          downloadTimes.push(downloadTime);
+          updateAvgDownloadTime();
+        }
+      });
+
+      hls.on(Hls.Events.BUFFER_APPENDED, () => updateBufferSizeDisplay());
+      hls.on(Hls.Events.MANIFEST_LOADED, () => addEvent('Manifest loaded'));
+
+      videoPlayer.addEventListener('timeupdate', updateBufferSizeDisplay);
+
+      let playStartTime = 0;
+      let timerInterval;
+      videoPlayer.addEventListener('play', () => {
+        playStartTime = performance.now();
+        timerInterval = setInterval(() => {
+          const currentTime = performance.now();
+          totalPlayTime += Math.round((currentTime - playStartTime) / 1000);
+          playStartTime = currentTime;
+          sessionStorage.setItem('playTime', totalPlayTime);
+        }, 1000);
+
+        postPlayerAction('Play');
+      });
+
+      videoPlayer.addEventListener('pause', () => {
+        clearInterval(timerInterval);
+        const currentTime = performance.now();
+        totalPlayTime += (currentTime - playStartTime) / 1000;
+
+        postPlayerAction('Pause');
+      });
+
+    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+      videoPlayer.src = HLS_STREAM_URL;
+      videoPlayer.addEventListener('timeupdate', updateBufferSizeDisplay);
+    }
+  </script>
+</body>
+
+</html>

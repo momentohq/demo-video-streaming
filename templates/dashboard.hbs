@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics Dashboard | Momento</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="icon" href="https://momento-developers.s3.amazonaws.com/public/momento-mark-white.png" type="image/png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mint: '#00c88c',
+            darkMint: '#03a876',
+            lightMint: '#abe7d2',
+            forest: '#25392b',
+            darkGray: '#1e1f21',
+            squirrel: '#c2b2a9',
+            mediumGray: '#32353B'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Manrope', sans-serif;
+    }
+  </style>
+</head>
+
+<body class="bg-darkGray text-white">
+  <header class="bg-forest text-white py-4 px-6 w-full fixed top-0">
+    <div class="max-w-full mx-auto flex items-center">
+      <img id="logo" src="https://momento-developers.s3.amazonaws.com/public/momento-logo-white.png" alt="Momento Logo"
+        class="w-44">
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container mx-auto mt-24 px-4 lg:px-0">
+    <div class="lg:flex lg:space-x-6 justify-center">
+      <!-- Analytics Container -->
+      <div class="bg-mediumGray rounded-lg shadow-lg py-4 px-4 lg:p-6 relative lg:w-2/3">
+        <img id="momentoMark" src="https://momento-developers.s3.amazonaws.com/public/momento-mark-white.png"
+          alt="Momento Mark" class="absolute top-4 right-4 lg:w-12 w-10 cursor-pointer">
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <h2 class="text-3xl lg:text-2xl">Video Streaming Analytics</h2>
+            <span id="refreshIcon" class="material-icons cursor-pointer text-white mt-1">refresh</span>
+          </div>
+          <p class="italic">Last refreshed at {{refreshTime}}</p>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-3 mt-6 items-center justify-center">
+          <!-- Active Players -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Active Players</p>
+            <p id="activePlayers" class="text-lg lg:text-2xl">0</p>
+          </div>
+          <!-- Total Players -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Total Players</p>
+            <p id="totalPlayers" class="text-lg lg:text-2xl">0</p>
+          </div>
+          <!-- Avg Play Time -->
+          <div class="text-center mb-4">
+            <p class="text-mint lg:text-lg font-semibold">Avg Play Time</p>
+            <p id="avgPlayTime" class="text-lg lg:text-2xl">0s</p>
+          </div>
+        </div>
+
+        <!-- Bitrate Stats -->
+        <div class="mt-6 bg-gray-700 rounded-lg shadow-md p-4">
+          <h3 class="text-xl mb-2">Bitrate Statistics</h3>
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <p class="text-mint font-semibold">Min Bitrate</p>
+              <p id="minBitrate" class="text-lg">0 kbps</p>
+            </div>
+            <div class="flex flex-col items-center">
+              <p class="text-mint font-semibold">Avg Bitrate</p>
+              <p id="avgBitrate" class="text-lg">0 kbps</p>
+            </div>
+            <div class="flex flex-col items-end">
+              <p class="text-mint font-semibold">Max Bitrate</p>
+              <p id="maxBitrate" class="text-lg">0 kbps</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bitrate Chart -->
+        <div class="mt-6 bg-gray-700 rounded-lg shadow-md p-4">
+          <h3 class="text-xl mb-2">Bitrate Distribution</h3>
+          <canvas id="bitrateChart"></canvas>
+        </div>
+
+        <div class="mt-6 bg-gray-700 rounded-lg shadow-md p-4">
+          <h3 class="text-xl mb-4">Agent Distribution</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="w-max-48 h-max-48 m-auto">
+              <canvas id="browserChart" class="h-48"></canvas>
+            </div>
+            <div class="w-max-48 h-max-48 m-auto">
+              <canvas id="deviceChart" class="h-48"></canvas>
+            </div>
+            <div class="w-max-48 h-max-48 m-auto">
+              <canvas id="osChart" class="h-48"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="simulationModal" class="fixed inset-0 hidden bg-black bg-opacity-50 flex justify-center items-center">
+      <div class="bg-darkGray p-6 rounded-lg w-96">
+        <div class="text-2xl font-semibold mb-4">Start Player Simulation</div>
+        <label for="playerCount" class="block text-white mb-2">Number of video players:</label>
+        <input type="number" id="playerCount" name="playerCount" min="1" max="1000"
+          class="w-full px-3 py-2 rounded bg-gray-600 text-white mb-4" required value="50">
+        <div class="flex justify-end">
+          <button id="closeModal" class="bg-gray-500 py-2 px-4 rounded">Close</button>
+          <button id="startSimulation" class="bg-mint text-darkGray py-2 px-4 rounded mr-2">Start</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function renderPage(analytics) {
+        document.getElementById('activePlayers').textContent = analytics.players.active;
+        document.getElementById('totalPlayers').textContent = analytics.players.total;
+        document.getElementById('avgPlayTime').textContent = formatTime(analytics.playTime.average);
+        document.getElementById('minBitrate').textContent = analytics.bitrates.min + " kbps";
+        document.getElementById('avgBitrate').textContent = analytics.bitrates.average + " kbps";
+        document.getElementById('maxBitrate').textContent = analytics.bitrates.max + " kbps";
+
+        renderBitrateChart(analytics.bitrates);
+        renderAgentCharts(analytics.agents);
+      }
+
+      function formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        let timeString = '';
+        if (hours > 0) timeString += hours + 'h ';
+        if (minutes > 0) timeString += minutes + 'm ';
+        if (seconds > 0) timeString += secs + 's';
+
+        return timeString;
+      }
+
+      function renderBitrateChart(bitrates) {
+        const ctx = document.getElementById('bitrateChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['Min', 'Average', 'Max'],
+            datasets: [{
+              label: 'Bitrate (kbps)',
+              data: [bitrates.min, bitrates.average, bitrates.max],
+              backgroundColor: ['#abe7d2', '#00c88c', '#03a876'],
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { color: 'white' }
+              },
+              x: {
+                ticks: { color: 'white' }
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              }
+            }
+          }
+        });
+      }
+
+      function renderAgentCharts(agents) {
+        const browserCtx = document.getElementById('browserChart').getContext('2d');
+        const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+        const osCtx = document.getElementById('osChart').getContext('2d');
+
+        // Prepare data for browsers chart
+        const browserLabels = Object.keys(agents.browsers);
+        const browserData = Object.values(agents.browsers);
+
+        // Prepare data for devices chart
+        const deviceLabels = ['Mobile', 'Desktop'];
+        const deviceData = [agents.devices.mobile, agents.devices.desktop];
+
+        // Prepare data for OS chart
+        const osLabels = Object.keys(agents.os);
+        const osData = Object.values(agents.os);
+
+        // Browser Chart
+        new Chart(browserCtx, {
+          type: 'doughnut',
+          data: {
+            labels: browserLabels,
+            datasets: [{
+              label: 'Browsers',
+              data: browserData,
+              backgroundColor: ['#abe7d2', '#00c88c', '#03a876', '#c2b2a9', '#25392b'],
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: 'white' } },
+            }
+          }
+        });
+
+        // Device Chart
+        new Chart(deviceCtx, {
+          type: 'doughnut',
+          data: {
+            labels: deviceLabels,
+            datasets: [{
+              label: 'Devices',
+              data: deviceData,
+              backgroundColor: ['#00c88c', '#25392b'],
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: 'white' } },
+            }
+          }
+        });
+
+        // OS Chart
+        new Chart(osCtx, {
+          type: 'doughnut',
+          data: {
+            labels: osLabels,
+            datasets: [{
+              label: 'Operating Systems',
+              data: osData,
+              backgroundColor: ['#abe7d2', '#00c88c', '#03a876', '#c2b2a9', '#25392b'],
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: 'white' } },
+            }
+          }
+        });
+      }
+
+      const analytics = {{{ json data }}};
+
+      renderPage(analytics);
+    </script>
+    <script>
+      const momentoMark = document.getElementById('momentoMark');
+      const modal = document.getElementById('simulationModal');
+      const closeModalBtn = document.getElementById('closeModal');
+      const startSimulationBtn = document.getElementById('startSimulation');
+
+      momentoMark.addEventListener('click', () => {
+        modal.style.display = 'flex';
+      });
+
+      closeModalBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+
+      startSimulationBtn.addEventListener('click', async () => {
+        const playerCount = document.getElementById('playerCount').value;
+
+        if (playerCount < 1 || playerCount > 1000) {
+          alert("Please enter a valid number of players between 1 and 1000.");
+          return;
+        }
+
+        try {
+          const response = await fetch('/v1/simulations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              playerCount: parseInt(playerCount)
+            })
+          });
+
+          if (response.ok) {
+            modal.style.display = 'none';
+          } else {
+            alert('Failed to start simulation. Please try again.');
+          }
+        } catch (error) {
+          console.error('Error starting simulation:', error);
+          alert('Error starting simulation. Please try again.');
+        }
+      });
+
+      document.getElementById('refreshIcon').addEventListener('click', () => {
+        window.location.reload();
+      });
+    </script>
+</body>
+
+</html>

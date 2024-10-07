@@ -1,0 +1,227 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Server support for video streaming app
+
+Metadata:
+  esbuild-properties: &esbuild-properties
+    Format: esm
+    Minify: true
+    OutExtension:
+      - .js=.mjs
+    Target: es2020
+    Sourcemap: false
+    EntryPoints:
+      - index.mjs
+    Banner:
+      - js=import { createRequire } from 'module'; const require = createRequire(import.meta.url);
+    External:
+      - '@aws-sdk/*'
+    Loader:
+      - .hbs=text
+
+Parameters:
+  MomentoApiKey:
+    Type: String
+    NoEcho: true
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Architectures:
+      - arm64
+    Tracing: Active
+    Timeout: 15
+    MemorySize: 1024
+    CodeUri: functions
+    Environment:
+      Variables:
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+
+Resources:
+  VideoApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: v1
+      DefinitionBody:
+        'Fn::Transform':
+          Name: AWS::Include
+          Parameters:
+            Location: ./openapi.yaml
+
+  WebhookFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        <<: *esbuild-properties
+        EntryPoints:
+          - webhook.mjs
+    Properties:
+      Handler: webhook.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          MOMENTO_API_KEY: !Ref MomentoApiKey
+          CACHE_NAME: video
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VideoApi
+            Path: /data
+            Method: POST
+
+  DashboardFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        <<: *esbuild-properties
+        EntryPoints:
+          - dashboard.mjs
+    Properties:
+      Handler: dashboard.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          MOMENTO_API_KEY: !Ref MomentoApiKey
+          CACHE_NAME: video
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VideoApi
+            Path: /dashboard
+            Method: GET
+
+  PlayerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        <<: *esbuild-properties
+        EntryPoints:
+          - player.mjs
+    Properties:
+      Handler: player.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          MOMENTO_API_KEY: !Ref MomentoApiKey
+          CACHE_NAME: video
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VideoApi
+            Path: /
+            Method: GET
+
+  SimulatorFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        <<: *esbuild-properties
+        EntryPoints:
+          - simulator.mjs
+    Properties:
+      Handler: simulator.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Environment:
+        Variables:
+          MOMENTO_API_KEY: !Ref MomentoApiKey
+          CACHE_NAME: video
+
+  SimulationDriverStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: EXPRESS
+      DefinitionUri: state-machines/simulation-driver.asl.json
+      DefinitionSubstitutions:
+        EventBridgePutEvents: !Sub arn:${AWS::Partition}:states:::events:putEvents
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: events:PutEvents
+              Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:event-bus/default
+            - Effect: Allow
+              Action:
+                - logs:CreateLogDelivery
+                - logs:GetLogDelivery
+                - logs:UpdateLogDelivery
+                - logs:DeleteLogDelivery
+                - logs:ListLogDeliveries
+                - logs:PutResourcePolicy
+                - logs:DescribeResourcePolicies
+                - logs:DescribeLogGroups
+              Resource: "*"
+      Logging:
+        Level: ALL
+        IncludeExecutionData: true
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt SimulationDriverLogGroup.Arn
+
+  SimulationRunnerStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: STANDARD
+      DefinitionUri: state-machines/simulation-runner.asl.json
+      DefinitionSubstitutions:
+        LambdaInvoke: !Sub arn:${AWS::Partition}:states:::lambda:invoke
+        Simulator: !GetAtt SimulatorFunction.Arn
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !GetAtt SimulatorFunction.Arn
+      Events:
+        Start:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              detail-type:
+                - Start Simulation
+              source:
+                - simulation.driver
+
+
+  SimulationDriverRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - apigateway.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+      - PolicyName: AllowSfnExecution
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - states:StartExecution
+              Resource: !GetAtt SimulationDriverStateMachine.Arn
+
+  SimulationDriverLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 3
+
+Outputs:
+  VideoBaseUrl:
+    Description: API Gateway endpoint for the video streaming API
+    Value: !Sub 'https://${VideoApi}.execute-api.${AWS::Region}.amazonaws.com/v1'

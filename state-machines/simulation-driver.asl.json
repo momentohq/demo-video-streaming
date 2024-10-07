@@ -1,0 +1,53 @@
+{
+  "Comment": "Driver for player simulator",
+  "StartAt": "Initialize",
+  "States": {
+    "Initialize": {
+      "Type": "Pass",
+      "Parameters": {
+        "playerCount.$": "$$.Execution.Input.playerCount",
+        "counter": 0
+      },
+      "Next": "Has more iterations?"
+    },
+    "Has more iterations?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.playerCount",
+          "NumericGreaterThanPath": "$.counter",
+          "Next": "Start Simulator"
+        }
+      ],
+      "Default": "Completed"
+    },
+    "Start Simulator": {
+      "Type": "Task",
+      "Resource": "${EventBridgePutEvents}",
+      "Parameters": {
+        "Entries": [
+          {
+            "Detail": {
+              "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$": "$$.Execution.Id"
+            },
+            "DetailType": "Start Simulation",
+            "Source": "simulation.driver"
+          }
+        ]
+      },
+      "ResultPath": null,
+      "Next": "Increment counter"
+    },
+    "Increment counter": {
+      "Type": "Pass",
+      "Parameters": {
+        "playerCount.$": "$.playerCount",
+        "counter.$": "States.MathAdd($.counter, 1)"
+      },
+      "Next": "Has more iterations?"
+    },
+    "Completed": {
+      "Type": "Succeed"
+    }
+  }
+}

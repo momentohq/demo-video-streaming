@@ -1,0 +1,128 @@
+openapi: 3.0.0
+info:
+  title: Video Streaming API
+  version: 1.0.0
+
+x-amazon-apigateway-cors:
+  allowOrigins:
+    - '*'
+  allowMethods:
+    - POST
+  allowHeaders:
+    - content-type
+  maxAge: 3600
+
+paths:
+  /:
+    get:
+      summary: Returns an HTML page with the video player
+      responses:
+        200:
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+        500:
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard:
+    get:
+      summary: Returns an HTML page with analytic dashboard
+      responses:
+        200:
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+        500:
+          $ref: '#/components/responses/InternalServerError'
+
+  /data:
+    post:
+      summary: Send video player data to Momento for processing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoPlayerData'
+      responses:
+        200:
+          description: OK
+        500:
+          $ref: '#/components/responses/InternalServerError'
+
+  /simulations:
+    post:
+      summary: Start a simulation with a provided number of video players
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                playerCount:
+                  type: integer
+                  minimum: 1
+                  maximum: 1000
+              required:
+                - playerCount
+      responses:
+        202:
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+        500:
+          $ref: '#/components/responses/InternalServerError'
+      x-amazon-apigateway-integration:
+        type: "aws_proxy"
+        integrationSubtype: "StepFunctions-StartExecution"
+        credentials:
+          Fn::GetAtt: [SimulationDriverRole, Arn]
+        connectionType: "INTERNET"
+        payloadFormatVersion: "1.0"
+        requestParameters:
+          StateMachineArn:
+            Fn::GetAtt: [SimulationDriverStateMachine, Arn]
+          Input: "$request.body"
+        responseParameters:
+          "200":
+            overwrite:statuscode: "202"
+        responses:
+          default:
+            statusCode: 202
+            responseTemplates:
+              application/json: |
+                {
+                  "id": "$input.path('$.executionArn').split(':').pop()"
+                }
+
+components:
+  schemas:
+    VideoPlayerData:
+      type: object
+      properties:
+        text:
+          type: string
+
+  responses:
+    InternalServerError: #500
+      description: The server encountered an unexpected condition which prevented it from fulfilling the request.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: An error occurred saving the item.
+            required:
+              - message

@@ -9,6 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@gomomento/sdk": "^1.98.1"
+    "@gomomento/sdk": "^1.98.1",
+    "fs": "^0.0.1-security",
+    "handlebars": "^4.7.8"
   }
 }
