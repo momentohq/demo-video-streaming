@@ -1,9 +1,6 @@
-import { CacheClient, CacheSortedSetFetchResponse, CollectionTtl, TopicClient } from '@gomomento/sdk';
+import { CacheClient, CacheSortedSetFetchResponse, CollectionTtl, TopicClient, CacheGetResponse } from '@gomomento/sdk';
 const cacheClient = new CacheClient({ defaultTtlSeconds: 10 });
 const topicClient = new TopicClient({});
-
-// TODO put this in the cache
-let lastViewerCountTime = 0;
 
 export const handler = async (event) => {
   try {
@@ -47,6 +44,12 @@ export const handler = async (event) => {
 };
 
 const broadcastViewerCount = async (now) => {
+  let lastViewerCountTime = 0;
+  const viewerCountTimeResponse = await cacheClient.get(process.env.CACHE_NAME, 'lastViewerCountTime');
+  if(viewerCountTimeResponse.type == CacheGetResponse.Hit) {
+    lastViewerCountTime = parseInt(viewerCountTimeResponse.value());
+  }
+
   if (now - lastViewerCountTime < 1500) {
     return;
   }
@@ -58,6 +61,6 @@ const broadcastViewerCount = async (now) => {
   }
 
   await topicClient.publish(process.env.CACHE_NAME, 'viewerCount', `${viewerCount}`);
-  lastViewerCountTime = now;
+  await cacheClient.set(process.env.CACHE_NAME, 'lastViewerCountTime', `${now}`);
 };
 
