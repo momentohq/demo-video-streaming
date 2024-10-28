@@ -6,6 +6,15 @@ const authClient = new AuthClient({});
 
 export const handler = async (event) => {
   try {
+    let streamUrl = 'https://vid.swaghunt.io/playlist_1920x1080_8000k.m3u8';
+    let streamName = 'Big Buck Bunny';
+    if(event.queryStringParameters?.stream){
+      streamUrl = event.queryStringParameters.stream;
+    }
+    if(event.queryStringParameters?.name){
+      streamName = event.queryStringParameters.name;
+    }
+
     const scope = {
       permissions:
         [{
@@ -27,7 +36,10 @@ export const handler = async (event) => {
         token: token.authToken,
         endpoint: `https://api.cache.cell-us-east-1-1.prod.a.momentohq.com/topics/${process.env.CACHE_NAME}`
       },
-      streamUrl: 'https://vid.swaghunt.io/playlist_1920x1080_8000k.m3u8'
+      stream: {
+        url: streamUrl,
+        name: streamName
+      }
     };
 
     const compiledTemplate = Handlebars.compile(template);

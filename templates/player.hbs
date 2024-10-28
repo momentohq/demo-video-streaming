@@ -48,7 +48,7 @@
       <!-- Embed Container -->
       <div class="bg-mediumGray rounded-lg shadow-lg py-4 px-4 lg:p-6 relative lg:w-2/3 lg:mb-0 mb-4">
         <img src="https://momento-developers.s3.amazonaws.com/public/momento-mark-white.png" alt="Momento Mark" class="absolute top-4 right-4 lg:w-12 w-10">
-        <h2 class="text-3xl lg:text-2xl">Big Buck Bunny</h2>
+        <h2 class="text-3xl lg:text-2xl">{{ stream.name }}</h2>
 
         <!-- Stats Row -->
         <div class="grid grid-cols-3 mt-6 items-center justify-center">
@@ -105,7 +105,7 @@
     const bufferSizeElement = document.getElementById('bufferSize');
     const segmentsDownloadedElement = document.getElementById('segmentsDownloaded');
 
-    const HLS_STREAM_URL = '{{ streamUrl }}';
+    const HLS_STREAM_URL = '{{ stream.url }}';
 
     let segmentsDownloaded = 0;
     let downloadTimes = [];
