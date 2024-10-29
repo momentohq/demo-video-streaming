@@ -26,7 +26,13 @@ export const handler = async (event) => {
           role: 'subscribeonly',
           cache: process.env.CACHE_NAME,
           topic: 'viewerCount'
-        }]
+        },
+        {
+          role: 'publishsubscribe',
+          cache: process.env.CACHE_NAME,
+          topic: 'reactions'
+        }
+      ]
     };
 
     let token = await authClient.generateDisposableToken(scope, ExpiresIn.minutes(15));
