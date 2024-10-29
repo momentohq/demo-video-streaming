@@ -24,7 +24,10 @@ Parameters:
   MomentoApiKey:
     Type: String
     NoEcho: true
-
+  Connection:
+    Type: String
+    Description: Connection ARN for AppRunner <> GitHub
+    
 Globals:
   Function:
     Runtime: nodejs20.x
@@ -220,6 +223,42 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       RetentionInDays: 3
+
+  VideoAppRunnerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ['tasks.apprunner.amazonaws.com']
+            Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+        - PolicyName: RSSAppRunnerRole
+          PolicyDocument:
+            Statement:
+            - Effect: Allow
+              Action: ssm:GetParameters
+              Resource:
+                - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/momento
+
+  HeartbeatService:
+    Type: AWS::AppRunner::Service
+    Properties:
+      SourceConfiguration:
+        AuthenticationConfiguration:
+          ConnectionArn: !Ref Connection
+        AutoDeploymentsEnabled: true
+        CodeRepository:
+          CodeConfiguration:
+            ConfigurationSource: REPOSITORY
+          RepositoryUrl: https://github.com/momentohq/demo-video-streaming
+          SourceCodeVersion:
+            Type: BRANCH
+            Value: main
+      InstanceConfiguration:
+        InstanceRoleArn: !GetAtt VideoAppRunnerRole.Arn
 
 Outputs:
   VideoBaseUrl:
