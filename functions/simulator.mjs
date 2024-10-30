@@ -1,6 +1,6 @@
 import { CacheClient, CollectionTtl, CacheDictionarySetFieldResponse, CacheSortedSetPutElementsResponse } from "@gomomento/sdk";
 
-const cacheClient = new CacheClient({});
+const cacheClient = new CacheClient({ defaultTtlSeconds: 3600 });
 const OPERATING_SYSTEMS = ['windows', 'linux', 'macos', 'android', 'ios'];
 const BROWSERS = ['google chrome', 'firefox', 'safari', 'microsoft edge', 'opera'];
 const DEVICES = ['desktop', 'mobile'];
