@@ -1,4 +1,4 @@
-import { CacheClient, CacheDictionaryFetchResponse } from "@gomomento/sdk";
+import { CacheClient, CacheDictionaryFetchResponse, CacheSortedSetFetchResponse } from "@gomomento/sdk";
 import Handlebars from 'handlebars';
 import template from '../templates/dashboard.hbs';
 
@@ -35,10 +35,6 @@ const getAnalytics = async () => {
     analytics = analyticsResponse.value();
   }
 
-  const currentTime = Date.now();
-  const activeThreshold = 5000;
-
-  let activePlayers = 0;
   let totalPlayers = 0;
   const playerIds = [];
   const playTimes = [];
@@ -52,13 +48,15 @@ const getAnalytics = async () => {
     os: {}
   };
 
+  let viewerCount = 0;
+  const activePlayers = await cacheClient.sortedSetFetchByScore(process.env.CACHE_NAME, 'activePlayers', { minScore: Date.now() - 2000 });
+  if (activePlayers.type == CacheSortedSetFetchResponse.Hit) {
+    viewerCount = activePlayers.value().length;
+  }
+
   Object.entries(analytics).forEach(([playerId, playerDataString]) => {
     const playerData = JSON.parse(playerDataString);
     totalPlayers++;
-
-    if (currentTime - playerData.lastHeartbeat <= activeThreshold) {
-      activePlayers++;
-    }
 
     playerIds.push(playerId);
     playTimes.push(playerData.playTime);
@@ -97,7 +95,7 @@ const getAnalytics = async () => {
       average: Math.round(bitrates.reduce((a, b) => a + b, 0) / bitrates.length) ?? 0
     },
     players: {
-      active: activePlayers,
+      active: viewerCount,
       total: totalPlayers
     },
     agents

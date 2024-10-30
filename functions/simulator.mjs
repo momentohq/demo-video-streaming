@@ -1,85 +1,68 @@
-import { TopicClient, TopicPublishResponse } from "@gomomento/sdk";
+import { CacheClient, CollectionTtl, CacheDictionarySetFieldResponse, CacheSortedSetPutElementsResponse } from "@gomomento/sdk";
 
-const topicClient = new TopicClient({});
-
+const cacheClient = new CacheClient({});
 const OPERATING_SYSTEMS = ['windows', 'linux', 'macos', 'android', 'ios'];
 const BROWSERS = ['google chrome', 'firefox', 'safari', 'microsoft edge', 'opera'];
 const DEVICES = ['desktop', 'mobile'];
 const BITRATES = ['500', '2000', '5000'];
 const MAX_VIEW_TIME = 120;
 
-let players = {};
+let players = [];
 
 export const runSimulation = async (playerCount) => {
-  players = {};
+  players = [];
+  const simulationId = generateString(4);
 
   for (let i = 0; i < playerCount; i++) {
-    const playerId = `player_${i + 1}`;
-    players[playerId] = createRandomPlayerEvent();
+    const playerId = await createRandomPlayer(simulationId, i);
+    players.push(playerId);
   }
 
-  const endTime = Date.now() + 60000;
   simulate(endTime);
 };
 
-const simulate = (endTime) => {
-  if (Date.now() >= endTime) {
+const simulate = async (endTime) => {
+  const now = Date.now();
+  if (now >= endTime) {
     return;
   }
 
-  for (const playerId of Object.keys(players)) {
-    run(playerId).catch((err) => {
-      console.error(`Error in run for player ${playerId}:`, err);
-    });
+  const response = await cacheClient.sortedSetPutElements(process.env.CACHE_NAME, 'activePlayers', players.map(p => { return { playerId: now }; }));
+  if (response.type == CacheSortedSetPutElementsResponse.Error) {
+    console.error({ type: 'heartbeat', error: response.toString() });
   }
 
   setTimeout(() => simulate(endTime), 750);
-};
-
-const run = async (playerId) => {
-  try {
-    let player = players[playerId];
-    updatePlayerEvent(player);
-
-    const message = {
-      playerId,
-      action: 'heartbeat',
-      bitrate: player.bitrate,
-      playTime: player.playTime,
-      agent: {
-        os: player.operatingSystem,
-        browser: player.browser,
-        device: player.device
-      }
-    };
-
-    const response = await topicClient.publish(process.env.CACHE_NAME, 'stream', JSON.stringify(message));
-    if (response.type == TopicPublishResponse.Error) {
-      console.error(response.toString());
-    }
-  } catch (err) {
-    console.error(err);
-  }
 };
 
 const getRandomValueFromArray = (array) => {
   return array[Math.floor(Math.random() * array.length)];
 };
 
-const createRandomPlayerEvent = () => {
-  return {
+const createRandomPlayer = async (simulationId, index) => {
+  const playerId = `${simulationId}_player_${index}`;
+  const response = await cacheClient.dictionarySetField(process.env.CACHE_NAME, 'analytics', playerId, JSON.stringify({
     bitrate: getRandomValueFromArray(BITRATES),
     playTime: Math.floor(Math.random() * MAX_VIEW_TIME),
-    operatingSystem: getRandomValueFromArray(OPERATING_SYSTEMS),
-    browser: getRandomValueFromArray(BROWSERS),
-    device: getRandomValueFromArray(DEVICES)
-  };
+    agent: {
+      os: getRandomValueFromArray(OPERATING_SYSTEMS),
+      browser: getRandomValueFromArray(BROWSERS),
+      device: getRandomValueFromArray(DEVICES)
+    }
+  }), { ttl: new CollectionTtl(3600, true) });
+  if (response.type == CacheDictionarySetFieldResponse.Error) {
+    console.error(JSON.stringify({ type: 'playerCreation', error: response.toString() }));
+  }
+
+  return playerId;
 };
 
-const updatePlayerEvent = (player) => {
-  const diff = MAX_VIEW_TIME - player.playTime;
-  player.playTime += Math.floor(Math.random() * diff);
-  player.bitrate = getRandomValueFromArray(BITRATES);
-
-  return player;
-};
+function generateString(length) {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  let result = '';
+  const charactersLength = characters.length;
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result;
+}

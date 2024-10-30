@@ -19,7 +19,6 @@ export const handler = async (event) => {
         await cacheClient.dictionarySetField(process.env.CACHE_NAME, 'analytics', playerId, JSON.stringify({
           bitrate,
           playTime,
-          lastHeartbeat: now,
           ...agent && { agent }
         }), { ttl: new CollectionTtl(3600, true) });
         break;
