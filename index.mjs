@@ -1,6 +1,6 @@
 import express from 'express';
 import { CacheClient, TopicClient, CacheSortedSetFetchResponse } from '@gomomento/sdk';
-import { runSimulation, clearSimulation } from './functions/simulator.mjs';
+import { runSimulation } from './functions/simulator.mjs';
 
 const cacheClient = new CacheClient({ defaultTtlSeconds: 60 });
 const topicClient = new TopicClient({});
@@ -20,7 +20,6 @@ async function run() {
 
   app.post('/simulations', (req, res) => {
     try {
-      clearSimulation();
       const { playerCount } = req.body;
       res.status(202).json({ message: `Simulation started for ${playerCount} players` });
       runSimulation(playerCount);

@@ -11,7 +11,6 @@ const MAX_VIEW_TIME = 120;
 let players = {};
 
 export const runSimulation = async (playerCount) => {
-  const endTime = Date.now() + 60000;
   players = {};
 
   for (let i = 0; i < playerCount; i++) {
@@ -19,27 +18,23 @@ export const runSimulation = async (playerCount) => {
     players[playerId] = createRandomPlayerEvent();
   }
 
-  for (const playerId of Object.keys(players)) {
-    simulatePlayer(playerId, endTime);
+  const endTime = Date.now() + 60000;
+  simulate(endTime);
+};
+
+const simulate = (endTime) => {
+  if (Date.now() >= endTime) {
+    return;
   }
-};
 
-const simulatePlayer = async (playerId, endTime) => {
-  const simulate = async () => {
-    if (Date.now() >= endTime) {
-      return;
-    }
-    try {
-      await run(playerId);
-    } catch (error) {
-      console.error(`Error for player ${playerId}:`, error);
-    }
-    // Schedule the next execution after 750ms
-    setTimeout(simulate, 750);
-  };
-  simulate(); // Start the simulation
-};
+  for (const playerId of Object.keys(players)) {
+    run(playerId).catch((err) => {
+      console.error(`Error in run for player ${playerId}:`, err);
+    });
+  }
 
+  setTimeout(() => simulate(endTime), 750);
+};
 
 const run = async (playerId) => {
   try {
@@ -59,7 +54,7 @@ const run = async (playerId) => {
     };
 
     const response = await topicClient.publish(process.env.CACHE_NAME, 'stream', JSON.stringify(message));
-    if(response.type == TopicPublishResponse.Error){
+    if (response.type == TopicPublishResponse.Error) {
       console.error(response.toString());
     }
   } catch (err) {
@@ -87,8 +82,4 @@ const updatePlayerEvent = (player) => {
   player.bitrate = getRandomValueFromArray(BITRATES);
 
   return player;
-};
-
-export const clearSimulation = () => {
-  players = {};
 };
