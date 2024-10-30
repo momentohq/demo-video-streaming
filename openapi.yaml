@@ -54,6 +54,46 @@ paths:
         500:
           $ref: '#/components/responses/InternalServerError'
 
+  /simulations:
+    post:
+      summary: Start a simulation with a provided number of video players
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                playerCount:
+                  type: integer
+                  minimum: 1
+                  maximum: 1000
+              required:
+                - playerCount
+      responses:
+        202:
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+        500:
+          $ref: '#/components/responses/InternalServerError'
+      x-amazon-apigateway-integration:
+        payloadFormatVersion: "1.0"
+        type: "http_proxy"
+        httpMethod: "POST"
+        uri: "https://9m27egzcnq.us-east-1.awsapprunner.com/simulations"
+        connectionType: "INTERNET"
+        requestTemplates:
+          application/json: "$input.body"
+        responses:
+          default:
+            statusCode: 202
+
 components:
   schemas:
     VideoPlayerData:

@@ -21,14 +21,20 @@ export const runSimulation = async (playerCount) => {
 
 const simulatePlayer = async (playerId) => {
   const endTime = Date.now() + 60000;
-  try {
-    while (Date.now() < endTime) {
-      await run(playerId);
-      await delay(750);
+  players[playerId] = createRandomPlayerEvent();
+
+  const intervalId = setInterval(async () => {
+    if (Date.now() >= endTime) {
+      clearInterval(intervalId);
+      return;
     }
-  } catch (error) {
-    console.error(`Error for player ${playerId}:`, error);
-  }
+
+    try {
+      await run(playerId);
+    } catch (error) {
+      console.error(`Error for player ${playerId}:`, error);
+    }
+  }, 750); 
 };
 
 const run = async (playerId) => {
