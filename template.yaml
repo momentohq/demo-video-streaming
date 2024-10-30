@@ -27,7 +27,7 @@ Parameters:
   Connection:
     Type: String
     Description: Connection ARN for AppRunner <> GitHub
-    
+
 Globals:
   Function:
     Runtime: nodejs20.x
@@ -123,106 +123,6 @@ Resources:
             ApiId: !Ref VideoApi
             Path: /
             Method: GET
-
-  SimulatorFunction:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        <<: *esbuild-properties
-        EntryPoints:
-          - simulator.mjs
-    Properties:
-      Handler: simulator.handler
-      Policies:
-        - AWSLambdaBasicExecutionRole
-      Environment:
-        Variables:
-          MOMENTO_API_KEY: !Ref MomentoApiKey
-          CACHE_NAME: video
-
-  SimulationDriverStateMachine:
-    Type: AWS::Serverless::StateMachine
-    Properties:
-      Type: EXPRESS
-      DefinitionUri: state-machines/simulation-driver.asl.json
-      DefinitionSubstitutions:
-        EventBridgePutEvents: !Sub arn:${AWS::Partition}:states:::events:putEvents
-      Policies:
-        - Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action: events:PutEvents
-              Resource: !Sub arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:event-bus/default
-            - Effect: Allow
-              Action:
-                - logs:CreateLogDelivery
-                - logs:GetLogDelivery
-                - logs:UpdateLogDelivery
-                - logs:DeleteLogDelivery
-                - logs:ListLogDeliveries
-                - logs:PutResourcePolicy
-                - logs:DescribeResourcePolicies
-                - logs:DescribeLogGroups
-              Resource: "*"
-      Logging:
-        Level: ALL
-        IncludeExecutionData: true
-        Destinations:
-          - CloudWatchLogsLogGroup:
-              LogGroupArn: !GetAtt SimulationDriverLogGroup.Arn
-
-  SimulationRunnerStateMachine:
-    Type: AWS::Serverless::StateMachine
-    Properties:
-      Type: STANDARD
-      DefinitionUri: state-machines/simulation-runner.asl.json
-      DefinitionSubstitutions:
-        LambdaInvoke: !Sub arn:${AWS::Partition}:states:::lambda:invoke
-        Simulator: !GetAtt SimulatorFunction.Arn
-      Policies:
-        - Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action: lambda:InvokeFunction
-              Resource: !GetAtt SimulatorFunction.Arn
-      Events:
-        Start:
-          Type: EventBridgeRule
-          Properties:
-            Pattern:
-              detail-type:
-                - Start Simulation
-              source:
-                - simulation.driver
-
-
-  SimulationDriverRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-              - apigateway.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      Policies:
-      - PolicyName: AllowSfnExecution
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-            - Effect: Allow
-              Action:
-                - states:StartExecution
-              Resource: !GetAtt SimulationDriverStateMachine.Arn
-
-  SimulationDriverLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      RetentionInDays: 3
 
   VideoAppRunnerRole:
     Type: AWS::IAM::Role

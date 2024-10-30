@@ -1,7 +1,6 @@
-import { TopicClient, CacheClient, CacheDictionaryFetchResponse } from "@gomomento/sdk";
+import { TopicClient } from "@gomomento/sdk";
 
 const topicClient = new TopicClient({});
-const cacheClient = new CacheClient({ defaultTtlSeconds: 300 });
 
 const OPERATING_SYSTEMS = ['windows', 'linux', 'macos', 'android', 'ios'];
 const BROWSERS = ['google chrome', 'firefox', 'safari', 'microsoft edge', 'opera'];
@@ -9,25 +8,42 @@ const DEVICES = ['desktop', 'mobile'];
 const BITRATES = ['500', '2000', '5000'];
 const MAX_VIEW_TIME = 120;
 
-export const handler = async (state) => {
+let players = {};
+
+export const runSimulation = async (playerCount) => {
+  const playerPromises = Array.from({ length: playerCount }, (_, i) => {
+    const playerId = `player_${i + 1}`;
+    return simulatePlayer(playerId);
+  });
+
+  await Promise.all(playerPromises);
+};
+
+const simulatePlayer = async (playerId) => {
+  const endTime = Date.now() + 60000;
   try {
-    const { id } = state;
-    let player;
-    const playerResponse = await cacheClient.dictionaryFetch(process.env.CACHE_NAME, id);
-    switch (playerResponse.type) {
-      case CacheDictionaryFetchResponse.Hit:
-        player = playerResponse.value();
-        player = updatePlayerEvent(player);
-        break;
-      case CacheDictionaryFetchResponse.Error:
-        console.error(playerResponse.toString());
-      case CacheDictionaryFetchResponse.Miss:
-        player = createRandomPlayerEvent();
-        break;
+    while (Date.now() < endTime) {
+      await run(playerId);
+      await delay(750);
+    }
+  } catch (error) {
+    console.error(`Error for player ${playerId}:`, error);
+  }
+};
+
+const run = async (playerId) => {
+  try {
+    let player = players[playerId];
+    if (!player) {
+      player = createRandomPlayerEvent();
+    } else {
+      player = updatePlayerEvent(player);
     }
 
+    players[playerId] = player;
+
     const message = {
-      playerId: id,
+      playerId,
       action: 'heartbeat',
       bitrate: player.bitrate,
       playTime: player.playTime,
@@ -39,10 +55,8 @@ export const handler = async (state) => {
     };
 
     await topicClient.publish(process.env.CACHE_NAME, 'stream', JSON.stringify(message));
-    return { success: true };
   } catch (err) {
     console.error(err);
-    return { success: false };
   }
 };
 
@@ -67,3 +81,9 @@ const updatePlayerEvent = (player) => {
 
   return player;
 };
+
+export const clearSimulation = () => {
+  players = [];
+};
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
