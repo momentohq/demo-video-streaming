@@ -1,4 +1,4 @@
-import { TopicClient } from "@gomomento/sdk";
+import { TopicClient, TopicPublishResponse } from "@gomomento/sdk";
 
 const topicClient = new TopicClient({});
 
@@ -11,42 +11,40 @@ const MAX_VIEW_TIME = 120;
 let players = {};
 
 export const runSimulation = async (playerCount) => {
-  const playerPromises = Array.from({ length: playerCount }, (_, i) => {
-    const playerId = `player_${i + 1}`;
-    return simulatePlayer(playerId);
-  });
+  const endTime = Date.now() + 60000;
+  players = {};
 
-  await Promise.all(playerPromises);
+  for (let i = 0; i < playerCount; i++) {
+    const playerId = `player_${i + 1}`;
+    players[playerId] = createRandomPlayerEvent();
+  }
+
+  for (const playerId of Object.keys(players)) {
+    simulatePlayer(playerId, endTime);
+  }
 };
 
-const simulatePlayer = async (playerId) => {
-  const endTime = Date.now() + 60000;
-  players[playerId] = createRandomPlayerEvent();
-
-  const intervalId = setInterval(async () => {
+const simulatePlayer = async (playerId, endTime) => {
+  const simulate = async () => {
     if (Date.now() >= endTime) {
-      clearInterval(intervalId);
       return;
     }
-
     try {
       await run(playerId);
     } catch (error) {
       console.error(`Error for player ${playerId}:`, error);
     }
-  }, 750); 
+    // Schedule the next execution after 750ms
+    setTimeout(simulate, 750);
+  };
+  simulate(); // Start the simulation
 };
+
 
 const run = async (playerId) => {
   try {
     let player = players[playerId];
-    if (!player) {
-      player = createRandomPlayerEvent();
-    } else {
-      player = updatePlayerEvent(player);
-    }
-
-    players[playerId] = player;
+    updatePlayerEvent(player);
 
     const message = {
       playerId,
@@ -60,7 +58,10 @@ const run = async (playerId) => {
       }
     };
 
-    await topicClient.publish(process.env.CACHE_NAME, 'stream', JSON.stringify(message));
+    const response = await topicClient.publish(process.env.CACHE_NAME, 'stream', JSON.stringify(message));
+    if(response.type == TopicPublishResponse.Error){
+      console.error(response.toString());
+    }
   } catch (err) {
     console.error(err);
   }
@@ -89,7 +90,5 @@ const updatePlayerEvent = (player) => {
 };
 
 export const clearSimulation = () => {
-  players = [];
+  players = {};
 };
-
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
