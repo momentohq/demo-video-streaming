@@ -2,6 +2,12 @@ version: 1.0
 runtime: nodejs18
 build:
   commands:
+    pre-build:
+      - git clone https://github.com/slyfox1186/ffmpeg-build-script.git
+      - cd ffmpeg-build-script
+      - bash build-ffmpeg.sh --build --enable-gpl-and-non-free --latest
+      - ls
+      - cd ..
     build:
       - npm install
 run:
