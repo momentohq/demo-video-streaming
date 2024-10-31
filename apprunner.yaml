@@ -3,12 +3,12 @@ runtime: nodejs18
 build:
   commands:
     pre-build:
-      - export TERM=xterm
+      -
       - yum install -y ncurses findutils bc
       - wget https://github.com/slyfox1186/ffmpeg-build-script/archive/refs/heads/master.zip
       - unzip master.zip
       - ls
-      - cd ffmpeg-build-script-master && sed -i '/if \[\[ "\$EUID" -eq 0 \]\]; then/,/fi/d' build-ffmpeg.sh && sed -i 's/apt-cache/yum/' build-ffmpeg.sh && sed -i 's/apt-get install/yum install -y/' build-ffmpeg.sh && bash build-ffmpeg.sh --build --enable-gpl-and-non-free --latest && ls
+      - export TERM=xterm && cd ffmpeg-build-script-master && sed -i '/if \[\[ "\$EUID" -eq 0 \]\]; then/,/fi/d' build-ffmpeg.sh && sed -i 's/sudo //g' build-ffmpeg.sh && sed -i 's/apt-cache/yum/' build-ffmpeg.sh && sed -i 's/apt-get install/yum install -y/' build-ffmpeg.sh && bash build-ffmpeg.sh --build --enable-gpl-and-non-free --latest && ls
       - ls
     build:
       - npm install
