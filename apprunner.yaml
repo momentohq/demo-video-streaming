@@ -3,7 +3,6 @@ runtime: nodejs18
 build:
   commands:
     pre-build:
-      -
       - yum install -y ncurses findutils bc
       - wget https://github.com/slyfox1186/ffmpeg-build-script/archive/refs/heads/master.zip
       - unzip master.zip
