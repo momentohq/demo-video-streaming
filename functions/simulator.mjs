@@ -13,21 +13,24 @@ export const runSimulation = async (playerCount) => {
   players = [];
   const simulationId = generateString(4);
 
+  const playerPromises = [];
   for (let i = 0; i < playerCount; i++) {
-    const playerId = await createRandomPlayer(simulationId, i);
-    players.push(playerId);
+    playerPromises.push(createRandomPlayer(simulationId, i));
   }
-
+  players = await Promise.all(playerPromises);
+  console.log(`Starting simulation '${simulationId}'`);
+  const endTime = Date.now() + 60000;
   simulate(endTime);
 };
 
 const simulate = async (endTime) => {
   const now = Date.now();
   if (now >= endTime) {
+    console.log('Simulation over');
     return;
   }
 
-  const response = await cacheClient.sortedSetPutElements(process.env.CACHE_NAME, 'activePlayers', players.map(p => { return { playerId: now }; }));
+  const response = await cacheClient.sortedSetPutElements(process.env.CACHE_NAME, 'activePlayers', players.map(p => [p, now]));
   if (response.type == CacheSortedSetPutElementsResponse.Error) {
     console.error({ type: 'heartbeat', error: response.toString() });
   }

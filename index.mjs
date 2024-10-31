@@ -39,7 +39,7 @@ const broadcastViewerCount = async () => {
     if (activePlayers.type == CacheSortedSetFetchResponse.Hit) {
       viewerCount = activePlayers.value().length;
     }
-
+    
     await topicClient.publish(process.env.CACHE_NAME, 'viewerCount', `${viewerCount}`);
   } catch (err) {
     console.error(err);
