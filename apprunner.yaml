@@ -4,7 +4,7 @@ build:
   commands:
     pre-build:
       - yum update -y
-      - yum install -y ncurses findutils bc yum-utils xz
+      - yum install -y ncurses findutils bc yum-utils xz gcc gcc-c++ make libtool autoconf pkgconfig zlib-devel yasm
       - yum-config-manager --add-repo https://yum.corretto.aws/corretto.repo
       - yum install -y java-1.8.0-amazon-corretto-devel
       - wget https://github.com/slyfox1186/ffmpeg-build-script/archive/refs/heads/master.zip
