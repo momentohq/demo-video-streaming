@@ -5,6 +5,7 @@ build:
     pre-build:
       - wget https://github.com/slyfox1186/ffmpeg-build-script/archive/refs/heads/master.zip
       - unzip master.zip
+      - cd ffmpeg-build-script-master
       - bash build-ffmpeg.sh --build --enable-gpl-and-non-free --latest
       - ls
       - cd ..
