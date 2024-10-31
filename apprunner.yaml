@@ -2,16 +2,6 @@ version: 1.0
 runtime: nodejs18
 build:
   commands:
-    pre-build:
-      - yum update -y
-      - yum install -y ncurses findutils bc yum-utils xz gcc gcc-c++ make libtool autoconf pkgconfig zlib-devel yasm
-      - yum-config-manager --add-repo https://yum.corretto.aws/corretto.repo
-      - yum install -y java-1.8.0-amazon-corretto-devel
-      - wget https://github.com/slyfox1186/ffmpeg-build-script/archive/refs/heads/master.zip
-      - unzip master.zip
-      - ls
-      - export TERM=xterm && export STATIC_VER=20.04 && cd ffmpeg-build-script-master && sed -i '/if \[\[ "\$EUID" -eq 0 \]\]; then/,/fi/d' build-ffmpeg.sh && sed -i 's/sudo //g' build-ffmpeg.sh && sed -i 's/apt-cache/yum/' build-ffmpeg.sh && sed -i 's/apt-get install/yum install -y/g' build-ffmpeg.sh && sed -i 's/apt /yum /g' build-ffmpeg.sh && bash build-ffmpeg.sh --build --enable-gpl-and-non-free --latest && ls
-      - ls
     build:
       - npm install
 run:
