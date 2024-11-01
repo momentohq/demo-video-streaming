@@ -3,6 +3,7 @@ runtime: nodejs18
 build:
   commands:
     build:
+      - yum install -y xz
       - mkdir -p bin
       - wget -O ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz
       - tar -xvf ffmpeg.tar.xz && cp ffmpeg-git-*-amd64-static/ffmpeg bin/ffmpeg.exe
