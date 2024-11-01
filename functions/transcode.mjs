@@ -4,7 +4,7 @@ import path from 'path';
 import { CacheClient } from '@gomomento/sdk';
 
 const cacheClient = new CacheClient({ defaultTtlSeconds: 3600 });
-ffmpeg.setFfmpegPath(path.join(process.cwd(), 'lib', 'ffmpeg.exe'));
+// ffmpeg.setFfmpegPath(path.join(process.cwd(), 'lib', 'ffmpeg.exe'));
 
 export const transcode = (rtmpUrl, streamName) => {
   ffmpeg(rtmpUrl)

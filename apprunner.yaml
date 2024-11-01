@@ -10,6 +10,7 @@ build:
       - chmod +x bin/ffmpeg.exe
       - rm -rf ffmpeg-git-*-amd64-static ffmpeg.tar.xz
       - bin/ffmpeg.exe -version
+      - ls
       - npm install
 run:
   command: npm start
