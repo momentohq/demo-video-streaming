@@ -3,6 +3,12 @@ runtime: nodejs18
 build:
   commands:
     build:
+      - mkdir -p bin
+      - wget -O ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz
+      - tar -xvf ffmpeg.tar.xz && cp ffmpeg-git-*-amd64-static/ffmpeg bin/ffmpeg.exe
+      - chmod +x bin/ffmpeg.exe
+      - rm -rf ffmpeg-git-*-amd64-static ffmpeg.tar.xz
+      - bin/ffmpeg.exe -version
       - npm install
 run:
   command: npm start
@@ -14,6 +20,8 @@ run:
       value: video
     - name: ENVIRONMENT
       value: production
+    - name: FFMPEG_PATH
+      value: bin/ffmpeg.exe
   secrets:
     - name: MOMENTO_API_KEY
       value-from: momento
