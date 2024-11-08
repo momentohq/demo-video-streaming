@@ -1,19 +1,25 @@
-import { AuthClient, ExpiresIn } from "@gomomento/sdk";
+import { AuthClient, ExpiresIn, CacheClient, CacheDictionaryLengthResponse } from "@gomomento/sdk";
 import Handlebars from 'handlebars';
 import template from '../templates/player.hbs';
+import { getAccountKey, CONCURRENT_THRESHOLD } from "./utils/helpers.mjs";
 
 const authClient = new AuthClient({});
+const cacheClient = new CacheClient({ defaultTtlSeconds: 60 });
 
 export const handler = async (event) => {
   try {
     let streamUrl = 'https://vid.swaghunt.io/playlist_1920x1080_8000k.m3u8';
     let streamName = 'Big Buck Bunny';
-    if(event.queryStringParameters?.stream){
+    if (event.queryStringParameters?.stream) {
       streamUrl = event.queryStringParameters.stream;
     }
-    if(event.queryStringParameters?.name){
+    if (event.queryStringParameters?.name) {
       streamName = event.queryStringParameters.name;
     }
+
+    let accountId = event.queryStringParameters?.accountId;
+    const concurrentDevices = await getConcurrentDeviceCount(accountId);
+    const isAllowed = concurrentDevices <= CONCURRENT_THRESHOLD;
 
     const scope = {
       permissions:
@@ -32,8 +38,16 @@ export const handler = async (event) => {
           cache: process.env.CACHE_NAME,
           topic: 'reactions'
         }
-      ]
+        ]
     };
+
+    if (accountId) {
+      scope.permissions.push({
+        role: 'subscribeonly',
+        cache: process.env.CACHE_NAME,
+        topic: accountId
+      });
+    }
 
     let token = await authClient.generateDisposableToken(scope, ExpiresIn.minutes(15));
 
@@ -45,6 +59,11 @@ export const handler = async (event) => {
       stream: {
         url: streamUrl,
         name: streamName
+      },
+      entitlements: {
+        isAllowed,
+        deviceCount: concurrentDevices,
+        accountId
       }
     };
 
@@ -63,4 +82,16 @@ export const handler = async (event) => {
       body: JSON.stringify({ message: "Something went wrong", }),
     };
   }
+};
+
+const getConcurrentDeviceCount = async (accountId) => {
+  if (!accountId) return 0;
+
+  const key = getAccountKey(accountId);
+  let deviceCount = 0;
+  const response = await cacheClient.dictionaryLength(process.env.CACHE_NAME, key);
+  if (response.type === CacheDictionaryLengthResponse.Hit) {
+    deviceCount = response.value();
+  }
+  return deviceCount;
 };

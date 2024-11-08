@@ -159,8 +159,6 @@ Resources:
             Value: main
       InstanceConfiguration:
         InstanceRoleArn: !GetAtt VideoAppRunnerRole.Arn
-        Cpu: 4 vCPU
-        Memory: 8 GB
 
 Outputs:
   VideoBaseUrl:
