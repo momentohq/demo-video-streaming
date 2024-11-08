@@ -38,7 +38,7 @@ export const handler = async (event) => {
           cache: process.env.CACHE_NAME,
           topic: 'reactions'
         }
-        ]
+      ]
     };
 
     if (accountId) {
